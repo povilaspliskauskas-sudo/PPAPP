@@ -7,42 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum emotion_enum {
+enum Emotion {
   happy
-  calm
-  excited
-  neutral
   sad
   angry
+  calm
+  excited
   tired
+  sick
 }
 
 model Child {
-  id        String         @id @default(uuid())
+  id        String         @id @default(cuid())
   name      String
   age       Int
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
   events    Event[]
   emotions  EmotionEntry[]
 }
 
 model Event {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   childId   String
   child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date      DateTime
+  date      DateTime @default(now())
   title     String
-  icon      String
-  createdAt DateTime @default(now())
+  details   String?
+
   @@index([childId, date])
 }
 
 model EmotionEntry {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   childId   String
   child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date      DateTime
-  emotion   emotion_enum
+  date      DateTime @default(now())
+  emotion   Emotion
   note      String?
-  createdAt DateTime @default(now())
+
   @@unique([childId, date])
+  @@index([childId, date])
 }
