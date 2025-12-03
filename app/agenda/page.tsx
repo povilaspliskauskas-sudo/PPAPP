@@ -1,65 +1,108 @@
 "use client";
-import { useEffect, useState } from "react";
-import ChildSwitcher from "../components/ChildSwitcher";
-type AgendaItem = { id: number; childId: number; date: string; title: string; timeOfDay: "morning"|"afternoon"|"evening"; };
-const times: AgendaItem["timeOfDay"][] = ["morning","afternoon","evening"];
+
+import { useEffect, useMemo, useState } from "react";
+import BackHome from "../components/BackHome";
+import ChildSwitcher, { Child } from "../components/ChildSwitcher";
+import { getTasksForAge, SLOTS, slotLabel, Task } from "@/lib/presets";
+
+type EventItem = { id: number; title: string; icon: string };
 
 export default function AgendaPage() {
-  const [childId, setChildId] = useState<number>();
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
-  const [items, setItems] = useState<AgendaItem[]>([]);
-  const [newTitle, setNewTitle] = useState("");
-  const [newSlot, setNewSlot] = useState<AgendaItem["timeOfDay"]>("morning");
+  const [child, setChild] = useState<Child | undefined>();
+  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
 
-  const load = async () => {
-    if (!childId) return;
-    const res = await fetch(`/api/agenda?childId=${childId}&date=${date}`);
-    const data = await res.json();
-    setItems(data.items ?? data);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [childId, date]);
+  const tasks = useMemo(() => getTasksForAge(child?.age ?? 3), [child?.age]);
 
-  const addItem = async () => {
-    if (!childId || !newTitle.trim()) return;
-    await fetch(`/api/agenda`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ childId, date, title: newTitle.trim(), timeOfDay: newSlot }),
-    });
-    setNewTitle("");
-    await load();
+  const refresh = async (cid: number, d: string) => {
+    const url = `/api/agenda?childId=${cid}&date=${d}`;
+    const res = await fetch(url);
+    const { items } = (await res.json()) as { items: EventItem[] };
+    setCheckedKeys(new Set(items.map((i) => i.title)));
   };
-  const removeItem = async (id: number) => { await fetch(`/api/agenda?id=${id}`, { method: "DELETE" }); await load(); };
+
+  useEffect(() => {
+    if (child?.id && date) {
+      refresh(child.id, date);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [child?.id, date]);
+
+  const toggle = async (task: Task) => {
+    if (!child?.id) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/agenda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId: child.id, date, task }),
+      });
+      const data = await res.json();
+      const keys = new Set((data.items as EventItem[]).map((i) => i.title));
+      setCheckedKeys(keys);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen p-4 space-y-4">
-      <h1 className="text-xl font-bold">Agenda</h1>
-      <ChildSwitcher value={childId} onChange={setChildId} />
-      <div className="flex items-center gap-3">
-        <label className="text-sm">Date</label>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-3 py-2" />
+    <main className="min-h-screen p-4 flex flex-col gap-4">
+      <BackHome />
+
+      <h1 className="text-2xl font-bold px-4">📅 Agenda</h1>
+
+      <div className="flex flex-wrap items-center gap-3 px-4">
+        <ChildSwitcher value={child?.id} onChange={(c) => setChild(c)} />
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-xl border px-3 py-2 shadow"
+        />
       </div>
-      <div className="flex gap-2 items-center">
-        <select className="border rounded px-3 py-2" value={newSlot} onChange={(e) => setNewSlot(e.target.value as any)}>
-          {times.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <input className="border rounded px-3 py-2 flex-1" placeholder="Add an activity" value={newTitle} onChange={(e)=>setNewTitle(e.target.value)} />
-        <button onClick={addItem} className="rounded-2xl border px-4 py-2 shadow active:scale-95">+ Add</button>
-      </div>
-      {times.map((slot) => (
-        <div key={slot} className="rounded-2xl border p-3">
-          <h2 className="font-semibold mb-2 capitalize">{slot}</h2>
-          <div className="flex flex-col gap-2">
-            {items.filter((i)=>i.timeOfDay===slot).map((i)=>(
-              <div key={i.id} className="flex justify-between items-center rounded-xl border px-3 py-2">
-                <span>{i.title}</span>
-                <button onClick={()=>removeItem(i.id)} className="text-sm rounded-xl border px-3 py-1 active:scale-95">Remove</button>
-              </div>
-            ))}
-            {items.filter((i)=>i.timeOfDay===slot).length===0 && <div className="text-sm text-gray-500">No items</div>}
-          </div>
-        </div>
-      ))}
+
+      {SLOTS.map((slot) => {
+        const slotTasks = tasks.filter((t) => t.slot === slot);
+        return (
+          <section key={slot} className="px-4">
+            <h2 className="mt-4 mb-2 text-lg font-semibold">{slotLabel[slot]}</h2>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", display: "grid" }}
+            >
+              {slotTasks.map((task) => {
+                const isOn = checkedKeys.has(task.key);
+                return (
+                  <button
+                    key={task.key}
+                    onClick={() => toggle(task)}
+                    disabled={loading}
+                    className={`h-28 rounded-2xl border shadow flex flex-col items-center justify-center gap-2 active:scale-95 ${
+                      isOn ? "outline outline-2 outline-emerald-400" : ""
+                    }`}
+                  >
+                    <div className="text-3xl" aria-hidden>
+                      {task.icon}
+                    </div>
+                    <div className="text-sm text-center px-2">{task.label}</div>
+                    <div
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        isOn ? "bg-emerald-100" : "bg-gray-100"
+                      }`}
+                    >
+                      {isOn ? "Done" : "To do"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {slotTasks.length === 0 && (
+              <div className="text-sm text-gray-500">No tasks for this slot.</div>
+            )}
+          </section>
+        );
+      })}
     </main>
   );
 }
