@@ -14,16 +14,17 @@ export default function ChildSwitcher({
   const [selected, setSelected] = useState<number | undefined>(value);
 
   useEffect(() => {
-    fetch("/api/children").then(async (r) => {
-      const data = await r.json();
-      const arr: Child[] = data.children ?? data;
-      setChildren(arr);
-      if (!selected && arr.length > 0) {
-        setSelected(arr[0].id);
-        onChange(arr[0]);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetch("/api/children")
+      .then((r) => r.json())
+      .then((data) => {
+        const arr: Child[] = data.children ?? data;
+        setChildren(arr);
+        if (!selected && arr.length) {
+          setSelected(arr[0].id);
+          onChange(arr[0]);
+        }
+      })
+      .catch(() => setChildren([]));
   }, []);
 
   return (
@@ -35,10 +36,9 @@ export default function ChildSwitcher({
             setSelected(c.id);
             onChange(c);
           }}
-          className={`px-3 py-2 rounded-2xl border shadow active:scale-95 ${
+          className={`rounded-2xl border px-3 py-2 shadow active:scale-95 ${
             selected === c.id ? "bg-gray-100" : ""
           }`}
-          title={`${c.name} (${c.age})`}
         >
           {c.name} ({c.age})
         </button>

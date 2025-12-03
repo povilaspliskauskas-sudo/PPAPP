@@ -7,21 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/**
- Postgres (quoted) table/column names from your SQL:
-  - "Child"(id, name, age, createdAt)
-  - "Event"(id, childId, date, title, icon, createdAt)
-  - "EmotionEntry"(id, childId, date, emotion, note, createdAt)
- We keep Prisma field names in camelCase and map them to the DB via @@map/@map.
-*/
-
 model Child {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   name      String
   age       Int
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
 
-  events        Event[]
+  events         Event[]
   emotionEntries EmotionEntry[]
 
   @@map("Child")

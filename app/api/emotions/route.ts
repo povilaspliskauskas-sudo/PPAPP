@@ -7,15 +7,11 @@ export async function GET(req: Request) {
   const childId = Number(searchParams.get("childId"));
   const dateStr = searchParams.get("date") ?? new Date().toISOString().slice(0,10);
   if (!childId) return NextResponse.json({ error: "childId is required" }, { status: 400 });
-
   const date = new Date(`${dateStr}T00:00:00.000Z`);
 
-  const row = await prisma.emotionEntry.findUnique({
-    where: { childId_date: { childId, date } },
-  }).catch(async () => {
-    // If compound unique name differs (older clients), fallback:
-    return prisma.emotionEntry.findFirst({ where: { childId, date } });
-  });
+  const row =
+    (await prisma.emotionEntry.findUnique({ where: { childId_date: { childId, date } } })) ??
+    (await prisma.emotionEntry.findFirst({ where: { childId, date } }));
 
   return NextResponse.json(row ?? {});
 }
