@@ -7,6 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Child {
+  id        Int            @id @default(autoincrement())
+  name      String
+  age       Int
+  createdAt DateTime       @default(now())
+  agenda    AgendaItem[]
+  emotions  EmotionEntry[]
+}
+
+model AgendaItem {
+  id       Int      @id @default(autoincrement())
+  childId  Int
+  date     DateTime
+  title    String
+  done     Boolean  @default(false)
+  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId])
+  @@index([date])
+}
+
 enum Emotion {
   happy
   sad
@@ -14,39 +35,15 @@ enum Emotion {
   calm
   excited
   tired
-  sick
-}
-
-model Child {
-  id        String         @id @default(cuid())
-  name      String
-  age       Int
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  events    Event[]
-  emotions  EmotionEntry[]
-}
-
-model Event {
-  id        String   @id @default(cuid())
-  childId   String
-  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date      DateTime @default(now())
-  title     String
-  details   String?
-
-  @@index([childId, date])
 }
 
 model EmotionEntry {
-  id        String   @id @default(cuid())
-  childId   String
-  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date      DateTime @default(now())
-  emotion   Emotion
-  note      String?
+  id       Int      @id @default(autoincrement())
+  childId  Int
+  date     DateTime
+  emotion  Emotion
+  notes    String?
+  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
 
   @@unique([childId, date])
-  @@index([childId, date])
 }
