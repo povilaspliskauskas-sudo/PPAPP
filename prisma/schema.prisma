@@ -14,18 +14,42 @@ model Child {
   createdAt DateTime       @default(now())
   agenda    AgendaItem[]
   emotions  EmotionEntry[]
+  Event     Event[]
 }
 
 model AgendaItem {
-  id       Int      @id @default(autoincrement())
-  childId  Int
-  date     DateTime
-  title    String
-  done     Boolean  @default(false)
-  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  id      Int      @id @default(autoincrement())
+  childId Int
+  date    DateTime
+  title   String
+  done    Boolean  @default(false)
+  child   Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
 
   @@index([childId])
   @@index([date])
+}
+
+model EmotionEntry {
+  id      Int      @id @default(autoincrement())
+  childId Int
+  date    DateTime
+  emotion Emotion
+  notes   String?
+  child   Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, date])
+}
+
+model Event {
+  id        Int      @id @default(autoincrement())
+  childid   Int
+  date      DateTime @db.Date
+  title     String
+  icon      String
+  createdat DateTime @default(now()) @db.Timestamptz(6)
+  Child     Child    @relation(fields: [childid], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([childid, date], map: "idx_event_child_date")
 }
 
 enum Emotion {
@@ -37,13 +61,12 @@ enum Emotion {
   tired
 }
 
-model EmotionEntry {
-  id       Int      @id @default(autoincrement())
-  childId  Int
-  date     DateTime
-  emotion  Emotion
-  notes    String?
-  child    Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-
-  @@unique([childId, date])
+enum emotion_enum {
+  happy
+  calm
+  excited
+  neutral
+  sad
+  angry
+  tired
 }
