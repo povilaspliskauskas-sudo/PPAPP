@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen w-screen flex items-center justify-center">
-        {/* Full-screen centering; children decide their own max width */}
+      {/* Full viewport and hard center */}
+      <body className="min-h-screen w-screen grid place-items-center">
         {children}
       </body>
     </html>

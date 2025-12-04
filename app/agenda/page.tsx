@@ -18,11 +18,7 @@ const TaskCard = memo(function TaskCard({ task, isOn, onToggle }: TaskCardProps)
     >
       <div className="text-[96px]" aria-hidden="true">{task.icon}</div>
       <div className="font-medium mt-1">{task.label}</div>
-      <div
-        className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
-          isOn ? "bg-emerald-100" : "bg-gray-100"
-        }`}
-      >
+      <div className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${isOn ? "bg-emerald-100" : "bg-gray-100"}`}>
         {isOn ? "Done" : "To do"}
       </div>
     </button>
@@ -33,34 +29,24 @@ export default function AgendaPage() {
   const [child, setChild] = useState<Child | undefined>();
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
-
   const tasks = useMemo(() => getTasksForAge(child?.age ?? 3), [child?.age]);
 
-  useEffect(() => {
-    setCheckedKeys(new Set());
-  }, [child?.id, date]);
+  useEffect(() => { setCheckedKeys(new Set()); }, [child?.id, date]);
 
   function toggleTask(task: Task) {
     const willTurnOn = !checkedKeys.has(task.key);
     setCheckedKeys(prev => {
       const next = new Set(prev);
-      if (next.has(task.key)) next.delete(task.key);
-      else next.add(task.key);
+      if (next.has(task.key)) next.delete(task.key); else next.add(task.key);
       return next;
     });
-    const send = () => {
-      fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskKey: task.key, slot: task.slot, on: willTurnOn }),
-        keepalive: true,
-      }).catch(() => {});
-    };
-    if (typeof (globalThis as any).requestIdleCallback !== "undefined") {
-      (globalThis as any).requestIdleCallback(() => send(), { timeout: 500 });
-    } else {
-      setTimeout(send, 200);
-    }
+    // fire-and-forget
+    fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskKey: task.key, slot: task.slot, on: willTurnOn }),
+      keepalive: true,
+    }).catch(() => {});
   }
 
   const bySlot: Record<string, Task[]> = useMemo(() => {
@@ -71,10 +57,9 @@ export default function AgendaPage() {
   }, [tasks]);
 
   return (
-    <main className="w-screen">
-      {/* hard-center container */}
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center text-center p-4">
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+    <main className="w-full">
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center p-4 gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <BackHome />
           <ChildSwitcher value={child?.id} onChange={setChild as any} />
           <input
@@ -87,7 +72,7 @@ export default function AgendaPage() {
         </div>
 
         {SLOTS.map((slot) => (
-          <section key={slot} aria-labelledby={`slot-${slot}`} className="mb-8 w-full">
+          <section key={slot} aria-labelledby={`slot-${slot}`} className="w-full">
             <h2 id={`slot-${slot}`} className="text-xl font-semibold mb-3">{slotLabel[slot]}</h2>
             <div
               className="grid gap-4 justify-center place-items-center"
