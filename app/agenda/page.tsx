@@ -16,12 +16,35 @@ export default function AgendaPage() {
   }, [child]);
 
   function toggleTask(task: Task) {
+    const willTurnOn = !checkedKeys.has(task.key);
+    setCheckedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(task.key)) next.delete(task.key); else next.add(task.key);
+      return next;
+    });
+
+    // send network call later so the tap is instant
+    try {
+      const payload = { taskKey: task.key, slot: task.slot, on: willTurnOn };
+      // Prefer idle time, fallback to small timeout
+      const doSend = () => fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {});
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(() => doSend(), { timeout: 500 });
+      } else {
+        setTimeout(doSend, 200);
+      }
+    } catch {}
+    return;
     setCheckedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(task.key)) next.delete(task.key);
       else next.add(task.key);
       return next;
-    });
 
     // Optional: non-blocking best-effort sync (ignore failures)
     try {
