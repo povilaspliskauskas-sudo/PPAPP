@@ -38,3 +38,16 @@ button { cursor: pointer; }
   outline-offset: 2px;
   border-radius: 16px;
 }
+
+/* Ensure body and html take full height for the layout centering */
+html, body {
+  height: 100%;
+}
+
+/* Larger universal touch target */
+.tap-target { min-height: 72px; min-width: 72px; }
+.tap-target:focus-visible {
+  outline: 3px solid #10b981;
+  outline-offset: 2px;
+  border-radius: 16px;
+}
