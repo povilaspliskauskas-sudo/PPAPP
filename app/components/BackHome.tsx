@@ -6,9 +6,11 @@ export default function BackHome() {
     <div className="p-4">
       <Link
         href="/"
-        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 shadow active:scale-95"
+        aria-label="Home"
+        className="inline-flex items-center justify-center rounded-2xl border p-2 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
       >
-        ← Home
+        <span aria-hidden="true" className="leading-none text-[96px]">🏠</span>
+        <span className="sr-only">Home</span>
       </Link>
     </div>
   );

@@ -1,3 +1,39 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; font-family: system-ui, sans-serif; }
 button { cursor: pointer; }
+
+/* --- A11y: large tap target + visible focus --- */
+.tap-target {
+  min-height: 72px;
+  min-width: 72px;
+}
+
+/* show a clear focus ring when keyboard users tab */
+.tap-target:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 0.75rem; /* matches rounded-xl vibes */
+}
+
+/* --- A11y: large tap target + visible focus --- */
+.tap-target {
+  min-height: 72px;
+  min-width: 72px;
+}
+
+/* show a clear focus ring when keyboard users tab */
+.tap-target:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 0.75rem; /* matches rounded-xl vibes */
+}
+/* Accessibility: minimum hit area + visible focus */
+.tap-target {
+  min-height: 72px;
+  min-width: 72px;
+}
+.tap-target:focus-visible {
+  outline: 3px solid #10b981; /* emerald-500 */
+  outline-offset: 2px;
+  border-radius: 16px;
+}

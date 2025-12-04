@@ -75,7 +75,7 @@ export default function AgendaPage() {
                       isOn ? "outline outline-2 outline-emerald-400" : ""
                     }`}
                   >
-                    <div className="text-[96px]">{task.icon}</div>
+                    <div className="text-2xl">{task.icon}</div>
                     <div className="font-medium mt-1">{task.label}</div>
                     <div
                       className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
@@ -92,24 +92,18 @@ export default function AgendaPage() {
         );
       })}
     </main>
+  );
+}
+
 <button
-  key={task.key}
   type="button"
   aria-pressed={isOn}
   onClick={() => toggleTask(task)}
-  className={`tap-target text-left inline-flex flex-col items-start rounded-2xl border px-3 py-2 shadow active:scale-95 ${
+  className={`tap-target inline-flex items-center gap-2 rounded-xl border px-3 py-2 shadow active:scale-95 focus-visible:outline-2 ${
     isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
   }`}
 >
-  <div className="text-[96px]" aria-hidden="true">{task.icon}</div>
-  <div className="font-medium mt-1">{task.label}</div>
-  <div
-    className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
-      isOn ? "bg-emerald-100" : "bg-gray-100"
-    }`}
-  >
-    {isOn ? "Done" : "To do"}
-  </div>
+  <span className="text-2xl" aria-hidden="true">{task.icon}</span>
+  <span className="text-base">{task.label}</span>
 </button>
-  );
-}
+
