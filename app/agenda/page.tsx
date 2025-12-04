@@ -26,10 +26,10 @@ export default function AgendaPage() {
 
   return (
     <main className="min-h-screen w-screen grid place-items-center">
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center gap-6 p-4">
+      <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-6 p-6">
         <BackHome />
 
-        <h1 className="text-2xl font-semibold">Agenda</h1>
+        <h1 className="text-3xl font-semibold">Agenda</h1>
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-3">
           <ChildSwitcher value={child?.id} onChange={setChild} />
@@ -48,8 +48,8 @@ export default function AgendaPage() {
 
         {child && (
           <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
+            className="grid gap-6 justify-items-center w-full"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
           >
             {tasks.map((task) => {
               const isOn = checked.has(task.key);
@@ -59,14 +59,14 @@ export default function AgendaPage() {
                   type="button"
                   aria-pressed={isOn}
                   onClick={() => toggleTask(task)}
-                  className={`tap-target text-left inline-flex flex-col items-center rounded-2xl border px-3 py-4 shadow active:scale-95 ${
+                  className={`tap-target text-center inline-flex flex-col items-center rounded-2xl border px-4 py-5 shadow active:scale-95 ${
                     isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
                   }`}
                 >
                   <div className="text-[96px] leading-none" aria-hidden="true">
                     {task.icon}
                   </div>
-                  <div className="font-medium mt-2">{task.label}</div>
+                  <div className="font-medium mt-3">{task.label}</div>
                   <div
                     className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
                       isOn ? "bg-emerald-100" : "bg-gray-100"
