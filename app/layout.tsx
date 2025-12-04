@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex items-center justify-center">
-        {/* Centered container for every page */}
-        <div className="w-full max-w-screen-md p-4">{children}</div>
+      <body className="min-h-screen w-screen flex items-center justify-center">
+        {/* Full-screen centering; children decide their own max width */}
+        {children}
       </body>
     </html>
   );

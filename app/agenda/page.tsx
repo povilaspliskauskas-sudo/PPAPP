@@ -36,23 +36,18 @@ export default function AgendaPage() {
 
   const tasks = useMemo(() => getTasksForAge(child?.age ?? 3), [child?.age]);
 
-  // Reset checks when switching child or date
   useEffect(() => {
     setCheckedKeys(new Set());
   }, [child?.id, date]);
 
   function toggleTask(task: Task) {
     const willTurnOn = !checkedKeys.has(task.key);
-
-    // Instant UI
     setCheckedKeys(prev => {
       const next = new Set(prev);
       if (next.has(task.key)) next.delete(task.key);
       else next.add(task.key);
       return next;
     });
-
-    // Fire-and-forget network
     const send = () => {
       fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
         method: "POST",
@@ -76,40 +71,43 @@ export default function AgendaPage() {
   }, [tasks]);
 
   return (
-    <main className="w-full">
-      <div className="flex items-center justify-center gap-3 mb-6">
-        <BackHome />
-        <ChildSwitcher value={child?.id} onChange={setChild as any} />
-        <input
-          type="date"
-          className="border rounded-xl px-3 py-2"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="Select date"
-        />
-      </div>
+    <main className="w-screen">
+      {/* hard-center container */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center text-center p-4">
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+          <BackHome />
+          <ChildSwitcher value={child?.id} onChange={setChild as any} />
+          <input
+            type="date"
+            className="border rounded-xl px-3 py-2"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Select date"
+          />
+        </div>
 
-      {SLOTS.map((slot) => (
-        <section key={slot} aria-labelledby={`slot-${slot}`} className="mb-6">
-          <h2 id={`slot-${slot}`} className="text-lg font-semibold text-center">{slotLabel[slot]}</h2>
-          <div
-            className="grid gap-3 justify-center place-items-center mt-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
-          >
-            {bySlot[slot].length === 0 && (
-              <div className="text-sm text-gray-500 text-center">No tasks for this slot.</div>
-            )}
-            {bySlot[slot].map((task) => (
-              <TaskCard
-                key={task.key}
-                task={task}
-                isOn={checkedKeys.has(task.key)}
-                onToggle={toggleTask}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+        {SLOTS.map((slot) => (
+          <section key={slot} aria-labelledby={`slot-${slot}`} className="mb-8 w-full">
+            <h2 id={`slot-${slot}`} className="text-xl font-semibold mb-3">{slotLabel[slot]}</h2>
+            <div
+              className="grid gap-4 justify-center place-items-center"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
+            >
+              {bySlot[slot].length === 0 && (
+                <div className="text-sm text-gray-500">No tasks for this slot.</div>
+              )}
+              {bySlot[slot].map((task) => (
+                <TaskCard
+                  key={task.key}
+                  task={task}
+                  isOn={checkedKeys.has(task.key)}
+                  onToggle={toggleTask}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </main>
   );
 }
