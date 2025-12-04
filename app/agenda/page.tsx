@@ -12,7 +12,7 @@ const TaskCard = memo(function TaskCard({ task, isOn, onToggle }: TaskCardProps)
       type="button"
       aria-pressed={isOn}
       onClick={() => onToggle(task)}
-      className={`tap-target text-left inline-flex flex-col items-start rounded-2xl border px-3 py-2 shadow active:scale-95 ${
+      className={`tap-target text-center inline-flex flex-col items-center rounded-2xl border px-3 py-2 shadow active:scale-95 ${
         isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
       }`}
     >
@@ -52,7 +52,7 @@ export default function AgendaPage() {
       return next;
     });
 
-    // Defer network so tap never feels laggy
+    // Fire-and-forget network
     const send = () => {
       fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
         method: "POST",
@@ -76,8 +76,8 @@ export default function AgendaPage() {
   }, [tasks]);
 
   return (
-    <main className="p-4 space-y-6">
-      <div className="flex items-center gap-3">
+    <main className="w-full">
+      <div className="flex items-center justify-center gap-3 mb-6">
         <BackHome />
         <ChildSwitcher value={child?.id} onChange={setChild as any} />
         <input
@@ -90,14 +90,14 @@ export default function AgendaPage() {
       </div>
 
       {SLOTS.map((slot) => (
-        <section key={slot} aria-labelledby={`slot-${slot}`}>
-          <h2 id={`slot-${slot}`} className="text-lg font-semibold">{slotLabel[slot]}</h2>
+        <section key={slot} aria-labelledby={`slot-${slot}`} className="mb-6">
+          <h2 id={`slot-${slot}`} className="text-lg font-semibold text-center">{slotLabel[slot]}</h2>
           <div
-            className="grid gap-3"
+            className="grid gap-3 justify-center place-items-center mt-3"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
           >
             {bySlot[slot].length === 0 && (
-              <div className="text-sm text-gray-500">No tasks for this slot.</div>
+              <div className="text-sm text-gray-500 text-center">No tasks for this slot.</div>
             )}
             {bySlot[slot].map((task) => (
               <TaskCard

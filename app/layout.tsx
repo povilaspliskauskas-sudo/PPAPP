@@ -1,20 +1,17 @@
-import './globals.css';
-import type { Metadata } from 'next';
+import "./globals.css";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'PPAPP – Kids Visual Calendar',
-  description: 'Agenda & Emotions for 3 kids',
+  title: "PPAPP",
+  description: "Parent/Provider App",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <div className="container">
-          <h1>PPAPP – Kids Visual Calendar</h1>
-          <p style={{opacity:0.7}}>Agenda & Emotions MVP</p>
-          {children}
-        </div>
+      <body className="min-h-screen flex items-center justify-center">
+        {/* Centered container for every page */}
+        <div className="w-full max-w-screen-md p-4">{children}</div>
       </body>
     </html>
   );
