@@ -1,94 +1,59 @@
 "use client";
+import { useState } from "react";
+import Link from "next/link";
 
-import { useMemo, useState } from "react";
-import BackHome from "../components/BackHome";
-import ChildSwitcher, { Child } from "../components/ChildSwitcher";
-import { getTasksForAge, SLOTS, slotLabel, Task } from "@/lib/presets";
+type Task = { key: string; label: string; icon: string };
+
+const TASKS: Task[] = [
+  { key: "toothbrush", label: "Brush teeth", icon: "🪥" },
+  { key: "breakfast", label: "Breakfast", icon: "🍳" },
+  { key: "homework", label: "Homework", icon: "📚" },
+  { key: "bath", label: "Bath", icon: "🛁" },
+];
 
 export default function AgendaPage() {
-  const [child, setChild] = useState<Child | undefined>();
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  const [checked, setChecked] = useState<Set<string>>(new Set());
 
-  const tasks: Task[] = useMemo(
-    () => getTasksForAge(child?.age ?? 4),
-    [child?.age]
-  );
-
-  const bySlot: Record<string, Task[]> = useMemo(() => {
-    const map: Record<string, Task[]> = {};
-    for (const s of SLOTS) map[s] = [];
-    for (const t of tasks) map[t.slot].push(t);
-    return map;
-  }, [tasks]);
-
-  function toggleTask(task: Task) {
-    setCheckedKeys(prev => {
+  const toggle = (t: Task) => {
+    setChecked(prev => {
       const next = new Set(prev);
-      if (next.has(task.key)) next.delete(task.key);
-      else next.add(task.key);
+      if (next.has(t.key)) next.delete(t.key);
+      else next.add(t.key);
       return next;
     });
-  }
+  };
 
   return (
-    <main className="w-full min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-[900px] mx-auto px-4 text-center">
-        <BackHome />
+    <main className="min-h-screen flex flex-col items-center justify-center gap-8 p-6 text-center">
+      <Link
+        href="/"
+        aria-label="Home"
+        className="inline-flex items-center justify-center rounded-2xl border p-2 shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+      >
+        <span aria-hidden="true" className="leading-none text-[80px]">🏠</span>
+      </Link>
 
-        <h1 className="text-2xl font-semibold mb-4">Agenda</h1>
+      <h1 className="text-2xl font-semibold">Agenda</h1>
 
-        <div className="mb-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <ChildSwitcher
-            value={child?.id}
-            onChange={(c) => setChild(c)}
-          />
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-xl border px-3 py-2 shadow"
-            aria-label="Select date"
-          />
-        </div>
-
-        {SLOTS.map((slot) => {
-          const list = bySlot[slot] || [];
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {TASKS.map(t => {
+          const isOn = checked.has(t.key);
           return (
-            <section key={slot} className="mb-8">
-              <h2 className="text-xl font-semibold mb-3">{slotLabel[slot]}</h2>
-
-              {list.length === 0 ? (
-                <div className="text-sm text-gray-500">No tasks for this slot.</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 place-items-center">
-                  {list.map((task) => {
-                    const isOn = checkedKeys.has(task.key);
-                    return (
-                      <button
-                        key={task.key}
-                        type="button"
-                        aria-pressed={isOn}
-                        onClick={() => toggleTask(task)}
-                        className={`tap-target text-left inline-flex flex-col items-center rounded-2xl border px-4 py-6 shadow active:scale-95 ${
-                          isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
-                        }`}
-                      >
-                        <div className="leading-none text-[120px]" aria-hidden="true">{task.icon}</div>
-                        <div className="mt-2 text-base font-medium">{task.label}</div>
-                        <div
-                          className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
-                            isOn ? "bg-emerald-100" : "bg-gray-100"
-                          }`}
-                        >
-                          {isOn ? "Done" : "To do"}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={isOn}
+              onClick={() => toggle(t)}
+              className={`tap-target flex flex-col items-center justify-center rounded-2xl border px-6 py-4 shadow active:scale-95 ${
+                isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
+              }`}
+            >
+              <div className="leading-none text-[200px]" aria-hidden="true">{t.icon}</div>
+              <div className="mt-2 text-lg font-medium">{t.label}</div>
+              <div className={`mt-2 text-xs inline-block rounded-full px-2 py-0.5 ${
+                isOn ? "bg-emerald-100" : "bg-gray-100"
+              }`}>{isOn ? "Done" : "To do"}</div>
+            </button>
           );
         })}
       </div>
