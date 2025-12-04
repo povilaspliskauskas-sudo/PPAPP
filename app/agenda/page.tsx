@@ -1,32 +1,33 @@
 "use client";
-
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">
 import { useMemo, useState } from "react";
-import BackHome from "../components/BackHome";
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">import BackHome from "../components/BackHome";
 import ChildSwitcher, { Child } from "../components/ChildSwitcher";
-import { getTasksForAge, Task } from "@/lib/presets";
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">import { getTasksForAge, Task } from "@/lib/presets";
 
-export default function AgendaPage() {
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">export default function AgendaPage() {
   const [child, setChild] = useState<Child | undefined>();
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">  return (
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">  const [checked, setChecked] = useState<Set<string>>(new Set());
 
-  const tasks: Task[] = useMemo(() => {
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">  const tasks: Task[] = useMemo(() => {
     if (child?.age === undefined) return [];
-    return getTasksForAge(child.age);
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">    return getTasksForAge(child.age);
   }, [child]);
-
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">
   function toggleTask(task: Task) {
-    setChecked(prev => {
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">    setChecked(prev => {
       const next = new Set(prev);
-      if (next.has(task.key)) next.delete(task.key);
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">      if (next.has(task.key)) next.delete(task.key);
       else next.add(task.key);
-      return next;
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">      return next;
     });
-  }
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">  }
 
-  return (
-    <main className="w-full flex flex-col items-center text-center gap-6">
-      <BackHome />
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">  return (
+    <main className="w-full flex flex-col items-center">
+      <div className="w-full max-w-[900px] mx-auto px-4 text-center">      <BackHome />
       <h1 className="text-3xl font-semibold">Agenda</h1>
 
       <div className="flex flex-col md:flex-row items-center justify-center gap-3">
@@ -78,3 +79,4 @@ export default function AgendaPage() {
     </main>
   );
 }
+</div>

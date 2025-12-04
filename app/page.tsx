@@ -3,29 +3,25 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="w-full flex flex-col items-center text-center gap-10">
-      <h1 className="text-3xl font-semibold">PPAPP</h1>
-
-      <div
-        className="grid gap-8 justify-items-center w-full"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
-      >
+    <main className="w-full">
+      <h1 className="text-center text-2xl font-semibold mb-6">PPAPP</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 place-items-center">
         <Link
           href="/agenda"
-          className="tap-target inline-flex flex-col items-center justify-center rounded-2xl border px-6 py-8 shadow bg-gray-50 hover:bg-gray-100 active:scale-95"
+          className="tap-target flex flex-col items-center justify-center rounded-2xl border px-4 py-6 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
           aria-label="Open Agenda"
         >
           <span aria-hidden="true" className="leading-none text-[200px]">🗓️</span>
-          <span className="mt-3 text-lg font-medium">Agenda</span>
+          <span className="mt-2 text-lg font-medium">Agenda</span>
         </Link>
 
         <Link
           href="/emotions"
-          className="tap-target inline-flex flex-col items-center justify-center rounded-2xl border px-6 py-8 shadow bg-gray-50 hover:bg-gray-100 active:scale-95"
+          className="tap-target flex flex-col items-center justify-center rounded-2xl border px-4 py-6 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
           aria-label="Open Emotions"
         >
           <span aria-hidden="true" className="leading-none text-[200px]">😊</span>
-          <span className="mt-3 text-lg font-medium">Emotions</span>
+          <span className="mt-2 text-lg font-medium">Emotions</span>
         </Link>
       </div>
     </main>
