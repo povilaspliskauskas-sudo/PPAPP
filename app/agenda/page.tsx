@@ -26,73 +26,13 @@ const TaskCard = memo(function TaskCard({ task, isOn, onToggle }: TaskCardProps)
 });
 
 export default function AgendaPage() {
-  const [child, setChild] = useState<Child | undefined>();
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
-  const tasks = useMemo(() => getTasksForAge(child?.age ?? 3), [child?.age]);
-
-  useEffect(() => { setCheckedKeys(new Set()); }, [child?.id, date]);
-
-  function toggleTask(task: Task) {
-    const willTurnOn = !checkedKeys.has(task.key);
-    setCheckedKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(task.key)) next.delete(task.key); else next.add(task.key);
-      return next;
-    });
-    // fire-and-forget
-    fetch(`/api/agenda?childId=${child?.id ?? ""}&date=${date}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskKey: task.key, slot: task.slot, on: willTurnOn }),
-      keepalive: true,
-    }).catch(() => {});
-  }
-
-  const bySlot: Record<string, Task[]> = useMemo(() => {
-    const map: Record<string, Task[]> = {};
-    for (const s of SLOTS) map[s] = [];
-    for (const t of tasks) map[t.slot]?.push(t);
-    return map;
-  }, [tasks]);
-
+{
   return (
-    <main className="w-full">
+    <main className="min-h-screen w-screen grid place-items-center">
       <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center p-4 gap-6">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <BackHome />
-          <ChildSwitcher value={child?.id} onChange={setChild as any} />
-          <input
-            type="date"
-            className="border rounded-xl px-3 py-2"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            aria-label="Select date"
-          />
-        </div>
-
-        {SLOTS.map((slot) => (
-          <section key={slot} aria-labelledby={`slot-${slot}`} className="w-full">
-            <h2 id={`slot-${slot}`} className="text-xl font-semibold mb-3">{slotLabel[slot]}</h2>
-            <div
-              className="grid gap-4 justify-center place-items-center"
-              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
-            >
-              {bySlot[slot].length === 0 && (
-                <div className="text-sm text-gray-500">No tasks for this slot.</div>
-              )}
-              {bySlot[slot].map((task) => (
-                <TaskCard
-                  key={task.key}
-                  task={task}
-                  isOn={checkedKeys.has(task.key)}
-                  onToggle={toggleTask}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
       </div>
     </main>
+  );
+}
   );
 }

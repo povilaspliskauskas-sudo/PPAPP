@@ -1,15 +1,29 @@
 "use client";
-import Link from "next/link";
-
 export default function Home() {
   return (
-    <main className="w-full">
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center gap-6 p-6">
-        <span aria-hidden="true" className="text-[96px] leading-none">🏠</span>
+    <main className="min-h-screen w-screen grid place-items-center">
+      <div className="flex flex-col items-center justify-center gap-8 text-center">
+        <span aria-hidden="true" className="leading-none text-[120px]">🏠</span>
         <h1 className="text-2xl font-semibold">PPAPP</h1>
-        <div className="flex flex-wrap gap-4 justify-center">
-          <Link href="/agenda" className="rounded-2xl border px-4 py-3 shadow">Agenda</Link>
-          <Link href="/emotions" className="rounded-2xl border px-4 py-3 shadow">Emotions</Link>
+
+        <div className="flex flex-wrap items-center justify-center gap-8">
+          <a
+            href="/agenda"
+            aria-label="Agenda"
+            className="rounded-2xl border p-4 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+            title="Agenda"
+          >
+            <span aria-hidden="true" className="leading-none text-[96px]">🗓️</span>
+          </a>
+
+          <a
+            href="/emotions"
+            aria-label="Emotions"
+            className="rounded-2xl border p-4 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+            title="Emotions"
+          >
+            <span aria-hidden="true" className="leading-none text-[96px]">😊</span>
+          </a>
         </div>
       </div>
     </main>
