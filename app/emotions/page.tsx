@@ -1,78 +1,60 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ChildSwitcher, { Child } from "../components/ChildSwitcher";
 
-type Item = {
-  id: number;
-  date: string;     // YYYY-MM-DD
-  time: string;     // HH:MM (UTC)
-  emotion: string;
-  createdAt: string;
-  note: string | null;
-};
-
 const EMOJIS = [
-  { key: "happy", icon: "😊", label: "Happy" },
-  { key: "calm", icon: "😌", label: "Calm" },
-  { key: "excited", icon: "🤩", label: "Excited" },
-  { key: "neutral", icon: "😐", label: "Neutral" },
-  { key: "sad", icon: "😢", label: "Sad" },
-  { key: "angry", icon: "😠", label: "Angry" },
-  { key: "tired", icon: "🥱", label: "Tired" },
-] as const;
+  { key: "happy", icon: "😊" },
+  { key: "calm", icon: "😌" },
+  { key: "excited", icon: "🤩" },
+  { key: "neutral", icon: "😐" },
+  { key: "sad", icon: "😢" },
+  { key: "angry", icon: "😠" },
+  { key: "tired", icon: "🥱" },
+];
+
+type HistItem = {
+  id: number;
+  date: string;    // YYYY-MM-DD
+  time: string;    // HH:MM:SS
+  emotion: string; // happy|...
+  note?: string | null;
+};
 
 export default function EmotionsPage() {
   const [child, setChild] = useState<Child | undefined>();
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [lastPressed, setLastPressed] = useState<string | null>(null);
-
-  // History UI state
-  // Fetch whenever child changes (if panel open we still refresh)
-  useEffect(() => {
-    if (child?.id) {
-      fetchHistory();
-    } else {
-      setItems([]);
-    }
-  }, [child?.id]);
-  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
-  const [from, setFrom] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState<string>(new Date().toISOString().slice(0,10));
   const [days, setDays] = useState<number>(30);
-  const [emotionFilter, setEmotionFilter] = useState<string>("all");
-  const [items, setItems] = useState<Item[]>([]);
+  const [filter, setFilter] = useState<string>("all");
+  const [items, setItems] = useState<HistItem[]>([]);
+  const [open, setOpen] = useState<boolean>(true);
+  const [lastPressed, setLastPressed] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const emojiMap = useMemo(() => {
+    const m: Record<string,string> = {};
+    for (const e of EMOJIS) m[e.key] = e.icon;
+    return m;
+  }, []);
+
   async function fetchHistory() {
-    if (!child?.id) return;
+    if (!child?.id) { setItems([]); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({
         childId: String(child.id),
         from,
         days: String(days),
-        emotion: emotionFilter,
+        emotion: filter || "all",
       });
-      const res = await fetch(`/api/emotions?` + params.toString(), { cache: "no-store" });
-      const data = res.ok ? await res.json() : { items: [] };
+      const res = await fetch(`/api/emotions?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => null);
       setItems(Array.isArray(data?.items) ? data.items : []);
-    } catch {
-      setItems([]);
     } finally {
       setLoading(false);
     }
   }
 
-  // Load when opening panel or when filters/child change while open
-  useEffect(() => {
-    if (historyOpen) {
-      fetchHistory();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyOpen, child?.id, from, days, emotionFilter]);
-
-  // Press-to-log emotion
   async function sendEmotion(key: string) {
     if (!child?.id) return;
     setLastPressed(key);
@@ -82,166 +64,121 @@ export default function EmotionsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ childId: child.id, emotion: key }),
       });
-      const saved = await res.json().catch(() => null);
-
-      // Optimistically append if panel open and entry matches filters
-      if (historyOpen && saved) {
-        const okEmotion = emotionFilter === "all" || saved.emotion === emotionFilter;
-        const fromDate = new Date(from + "T00:00:00.000Z");
-        const toDate = new Date(fromDate);
-        toDate.setUTCDate(toDate.getUTCDate() + (days || 30));
-        const savedDate = new Date(saved.date + "T00:00:00.000Z");
-        const okRange = savedDate >= fromDate && savedDate < toDate;
-        if (okEmotion && okRange) {
-          setItems(prev => [{ ...saved }, ...prev]);
-        }
-      }
-    } catch {
-      /* no-op */
-    }
+      // ignore body – we’ll refetch authoritative server data
+    } catch {}
+    setOpen(true);         // make sure user sees history
+    await fetchHistory();  // always refresh after press
   }
 
-  // Group items by date to show multiple presses per day
-  const grouped = useMemo(() => {
-    const map = new Map<string, Item[]>();
-    for (const it of items) {
-      if (!map.has(it.date)) map.set(it.date, []);
-      map.get(it.date)!.push(it);
-    }
-    // sort each day by createdAt desc (already desc from API, but ensure)
-    for (const arr of map.values()) {
-      arr.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-    }
-    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [items]);
+  // Auto-refresh when child or filters change (if panel open)
+  useEffect(() => {
+    if (open) fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [child?.id, from, days, filter, open]);
 
   return (
     <main className="min-h-screen grid place-items-center p-6">
       <div className="w-full max-w-[1000px] mx-auto text-center">
-        {/* Top bar with Home + Child + Date */}
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/"
-            aria-label="Home"
-            className="inline-flex items-center justify-center rounded-2xl border p-2 shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
-          >
-            <span aria-hidden="true" className="leading-none text-[96px]">🏠</span>
-            <span className="sr-only">Home</span>
-          </Link>
+        <Link
+          href="/"
+          aria-label="Home"
+          className="inline-flex items-center justify-center rounded-2xl border p-2 shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+        >
+          <span aria-hidden="true" className="leading-none text-[96px]">🏠</span>
+          <span className="sr-only">Home</span>
+        </Link>
 
-          <ChildSwitcher value={child?.id} onChange={setChild} />
-
+        {/* child + date controls */}
+        <div className="mt-6 flex flex-wrap gap-3 justify-center items-center">
+          <ChildSwitcher onChange={setChild} />
           <input
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-xl border px-3 py-2 shadow"
-            aria-label="Date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded border px-3 py-2"
+            aria-label="From date"
           />
+          <input
+            type="number"
+            min={1}
+            max={90}
+            value={days}
+            onChange={(e) => setDays(Math.max(1, Math.min(90, Number(e.target.value) || 30)))}
+            className="w-24 rounded border px-3 py-2"
+            aria-label="Number of days"
+          />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="rounded border px-3 py-2"
+            aria-label="Filter emotion"
+          >
+            <option value="all">All</option>
+            {EMOJIS.map(e => <option key={e.key} value={e.key}>{e.key}</option>)}
+          </select>
+          <button
+            onClick={fetchHistory}
+            className="rounded-lg border px-3 py-2 shadow active:scale-95"
+          >
+            Apply
+          </button>
         </div>
 
-        {/* Emoji grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 justify-items-center">
-          {EMOJIS.map(e => (
-            <button
-              key={e.key}
-              type="button"
-              aria-pressed={lastPressed === e.key}
-              onClick={() => sendEmotion(e.key)}
-              className={`tap-target w-[240px] h-[240px] rounded-2xl border shadow active:scale-95 flex flex-col items-center justify-center ${
-                lastPressed === e.key ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-white"
-              }`}
-            >
-              <div className="text-[120px]" aria-hidden="true">{e.icon}</div>
-              <div className="mt-2 font-medium">{e.label}</div>
-            </button>
-          ))}
+        {/* emoji grid */}
+        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 justify-items-center">
+          {!child?.id && (
+            <div className="col-span-full text-sm text-red-600">Select a child to start logging emotions.</div>
+          )}
+          {EMOJIS.map((e) => {
+            const pressed = lastPressed === e.key;
+            return (
+              <button
+                key={e.key}
+                type="button"
+                disabled={!child?.id}
+                aria-disabled={!child?.id}
+                onClick={() => sendEmotion(e.key)}
+                className={`tap-target w-[240px] h-[240px] inline-flex flex-col items-center justify-center rounded-2xl border shadow active:scale-95 ${
+                  pressed ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-white"
+                }`}
+              >
+                <div className="text-[120px]" aria-hidden="true">{e.icon}</div>
+                <div className="mt-2 font-semibold text-lg">{e.key}</div>
+              </button>
+            );
+          })}
         </div>
 
-        {/* History Panel */}
+        {/* History */}
         <div className="mt-10 text-left">
           <button
             type="button"
-            onClick={() => setHistoryOpen(v => !v)}
-            className="rounded-xl border px-4 py-2 shadow"
-            aria-expanded={historyOpen}
+            onClick={() => setOpen(v => !v)}
+            className="rounded-lg border px-4 py-2 shadow"
+            aria-expanded={open}
+            aria-controls="history-panel"
           >
-            {historyOpen ? "Hide" : "Show"} History (last {days} days)
+            {open ? "Hide" : "Show"} History (last {days} days)
           </button>
 
-          {historyOpen && (
-            <div className="mt-4 rounded-2xl border p-4">
-              {/* Filters */}
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="block text-sm text-gray-600">From</label>
-                  <input
-                    type="date"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                    className="rounded-xl border px-3 py-2 shadow"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Days</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={90}
-                    value={days}
-                    onChange={(e) => setDays(Math.max(1, Math.min(90, Number(e.target.value) || 1)))}
-                    className="w-24 rounded-xl border px-3 py-2 shadow"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Emotion</label>
-                  <select
-                    value={emotionFilter}
-                    onChange={(e) => setEmotionFilter(e.target.value)}
-                    className="rounded-xl border px-3 py-2 shadow"
-                  >
-                    <option value="all">All</option>
-                    {EMOJIS.map(e => (
-                      <option key={e.key} value={e.key}>{e.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchHistory}
-                  className="h-[42px] rounded-xl border px-4 py-2 shadow"
-                >
-                  Apply
-                </button>
-              </div>
-
-              {/* Results */}
-              <div className="mt-4">
-                {loading && <div className="text-sm text-gray-500">Loading…</div>}
-                {!loading && grouped.length === 0 && (
-                  <div className="text-sm text-gray-500">No entries for selected range/filters.</div>
-                )}
-                {!loading && grouped.length > 0 && (
-                  <div className="space-y-4">
-                    {grouped.map(([day, list]) => (
-                      <div key={day} className="rounded-xl border p-3">
-                        <div className="font-semibold mb-2">{day}</div>
-                        <ul className="space-y-1">
-                          {list.map(it => (
-                            <li key={it.id} className="flex items-center gap-2 text-sm">
-                              <span className="inline-block w-14 text-gray-600">{it.time}</span>
-                              <span className="text-base">
-                                {EMOJIS.find(e => e.key === it.emotion)?.icon ?? "❓"}
-                              </span>
-                              <span className="ml-2">{it.emotion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {open && (
+            <div id="history-panel" className="mt-4 rounded-2xl border p-4">
+              {loading && <div className="text-sm text-gray-500">Loading…</div>}
+              {!loading && items.length === 0 && (
+                <div className="text-sm text-gray-500">No entries for selected range/filters.</div>
+              )}
+              {!loading && items.length > 0 && (
+                <ul className="divide-y">
+                  {items.map((it) => (
+                    <li key={it.id} className="py-2 flex items-center gap-3">
+                      <span className="text-xl" aria-hidden="true">{emojiMap[it.emotion] ?? "❓"}</span>
+                      <span className="text-sm text-gray-600 w-28">{it.date} {it.time}</span>
+                      <span className="font-medium capitalize">{it.emotion}</span>
+                      {it.note && <span className="text-sm text-gray-500">— {it.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>
