@@ -81,3 +81,11 @@ html, body {
   min-height: 96px;
   min-width: 96px;
 }
+
+/* Larger date input app-wide */
+input[type="date"] {
+  height: 56px;
+  font-size: 1.25rem; /* text-xl */
+  padding: 0 1rem;
+  line-height: 1.2;
+}
