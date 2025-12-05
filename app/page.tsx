@@ -1,28 +1,38 @@
 "use client";
+
 import Link from "next/link";
+
+type Card = { href: string; icon: string; label: string };
+
+const CARDS: Card[] = [
+  { href: "/agenda",   icon: "📋", label: "Agenda" },
+  { href: "/emotions", icon: "😊", label: "Emotions" },
+];
 
 export default function Home() {
   return (
-    <main className="w-full">
-      <h1 className="text-center text-2xl font-semibold mb-6">PPAPP</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 place-items-center">
-        <Link
-          href="/agenda"
-          className="tap-target flex flex-col items-center justify-center rounded-2xl border px-4 py-6 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
-          aria-label="Open Agenda"
-        >
-          <span aria-hidden="true" className="leading-none text-[200px]">🗓️</span>
-          <span className="mt-2 text-lg font-medium">Agenda</span>
-        </Link>
+    <main className="min-h-screen grid place-items-center p-6">
+      <div className="w-full max-w-[1000px] mx-auto px-4 text-center">
+        <h1 className="sr-only">PPAPP</h1>
 
-        <Link
-          href="/emotions"
-          className="tap-target flex flex-col items-center justify-center rounded-2xl border px-4 py-6 shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
-          aria-label="Open Emotions"
+        <div
+          className="grid gap-6 justify-items-center"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}
         >
-          <span aria-hidden="true" className="leading-none text-[200px]">😊</span>
-          <span className="mt-2 text-lg font-medium">Emotions</span>
-        </Link>
+          {CARDS.map((c) => (
+            <Link
+              key={c.href}
+              href={c.href}
+              className="tap-target block w-full max-w-[260px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+              aria-label={c.label}
+            >
+              <div className="rounded-2xl border shadow bg-white flex items-center justify-center w-[240px] h-[240px] mx-auto">
+                <span aria-hidden className="text-[128px] leading-none">{c.icon}</span>
+              </div>
+              <div className="mt-3 text-center font-semibold text-lg">{c.label}</div>
+            </Link>
+          ))}
+        </div>
       </div>
     </main>
   );
