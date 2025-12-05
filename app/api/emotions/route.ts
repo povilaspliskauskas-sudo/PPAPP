@@ -1,104 +1,100 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { emotion_enum as EMOTION_ENUM } from "@prisma/client";
-import type { emotion_enum as EmotionEnum } from "@prisma/client";
+
+// Allowed UI emotion keys (lowercase)
+const ALLOWED = ["happy","calm","excited","neutral","sad","angry","tired"] as const;
+type EmotionKey = typeof ALLOWED[number];
+
+// Map UI key -> DB enum value (uppercase names in your prisma enum `emotion_enum`)
+const toEnum = (k: EmotionKey) => k.toUpperCase() as unknown as any;
 
 /**
- * GET /api/emotions?childId=1&days=7&from=YYYY-MM-DD
- *  - returns entries (newest first) with {id, date, time, emotion, note, createdAt}
- *
- * POST /api/emotions
- *  body: { childId: number, emotion: string, note?: string }
- *  - appends a new entry (no toggle). Date bucket = UTC YYYY-MM-DD; createdAt = now
+ * GET /api/emotions?childId=1&from=YYYY-MM-DD&days=7
+ * Returns presses in the window [start..end], where:
+ *   end   = end of "from" day (23:59:59.999Z)
+ *   start = (days-1) days before "from" at 00:00:00.000Z
  */
-
-function startOfDay(dateStr?: string) {
-  const iso = (dateStr ?? new Date().toISOString().slice(0, 10)) + "T00:00:00.000Z";
-  return new Date(iso);
-}
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const childId = Number(searchParams.get("childId"));
-  if (!childId) {
-    return NextResponse.json({ error: "childId is required" }, { status: 400 });
+  const fromStr = searchParams.get("from") ?? new Date().toISOString().slice(0,10);
+  const days    = Number(searchParams.get("days") ?? "7");
+
+  if (!childId || !Number.isFinite(childId) || !Number.isFinite(days) || days < 1) {
+    return NextResponse.json({ items: [] }, { status: 200 });
   }
 
-  const days = Math.max(1, Math.min(31, Number(searchParams.get("days") ?? 7)));
-  const fromParam = searchParams.get("from") ?? undefined;
-
-  const end = new Date(); // now
-  const start = startOfDay(fromParam);
-  start.setUTCDate(start.getUTCDate() - (days - 1));
+  // Window: start..end (UTC)
+  const fromDate = new Date(`${fromStr}T00:00:00.000Z`);
+  const start = new Date(fromDate);
+  start.setUTCDate(start.getUTCDate() - (days - 1)); // include previous days
+  const end = new Date(fromDate);
+  end.setUTCHours(23, 59, 59, 999);
 
   const rows = await prisma.emotionEntry.findMany({
     where: {
       childId,
       createdAt: { gte: start, lte: end },
     },
+    select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, emotion: true, note: true, date: true },
   });
 
-  const items = rows.map((r) => {
-    const created = new Date(r.createdAt);
-    const hh = String(created.getUTCHours()).padStart(2, "0");
-    const mm = String(created.getUTCMinutes()).padStart(2, "0");
+  const items = rows.map(r => {
+    const dt = new Date(r.createdAt);
+    const hh = String(dt.getUTCHours()).padStart(2, "0");
+    const mm = String(dt.getUTCMinutes()).padStart(2, "0");
     return {
       id: r.id,
-      date: (r.date ?? created).toISOString().slice(0, 10),
-      time: `${hh}:${mm} UTC`,
-      emotion: r.emotion,
-      note: r.note ?? null,
-      createdAt: r.createdAt,
+      date: dt.toISOString().slice(0,10),      // YYYY-MM-DD
+      time: `${hh}:${mm}`,                      // HH:MM (UTC)
+      emotion: String(r.emotion).toLowerCase(), // back to lowercase for UI
+      note: r.note,
+      createdAt: dt.toISOString(),
     };
   });
 
-  return NextResponse.json({ items, range: { from: start.toISOString(), to: end.toISOString() } });
+  return NextResponse.json({ items });
 }
 
+/**
+ * POST /api/emotions
+ * body: { childId: number, emotion: "happy" | ... }
+ * Saves a new press (does NOT toggle).
+ */
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const childId = Number(body?.childId);
-  const note = body?.note ? String(body.note) : null;
+  const body = await req.json().catch(() => null) as { childId?: number; emotion?: string } | null;
+  const childId = Number(body?.childId ?? 0);
+  const emotionRaw = String(body?.emotion ?? "").toLowerCase();
 
-  // Normalize input to lowercase to match enum values
-  const rawLower = String(body?.emotion ?? "").trim().toLowerCase();
-  if (!childId || !rawLower) {
-    return NextResponse.json({ error: "childId and emotion are required" }, { status: 400 });
+  if (!childId || !ALLOWED.includes(emotionRaw as EmotionKey)) {
+    return NextResponse.json({ error: "Invalid childId or emotion" }, { status: 400 });
   }
 
-  // Allowed enum values (typed)
-  const allowedValues = new Set(Object.values(EMOTION_ENUM) as EmotionEnum[]); // e.g., 'happy' | 'calm' ...
-  // Allowed enum keys (UPPERCASE), compare case-insensitively
-  const allowedKeysLower = new Set(Object.keys(EMOTION_ENUM).map((k) => k.toLowerCase()));
+  // date-only column (midnight UTC) + createdAt is automatic now()
+  const today = new Date();
+  const dateOnly = new Date(`${today.toISOString().slice(0,10)}T00:00:00.000Z`);
 
-  let finalValue: EmotionEnum | null = null;
-
-  if (allowedValues.has(rawLower as EmotionEnum)) {
-    finalValue = rawLower as EmotionEnum;
-  } else if (allowedKeysLower.has(rawLower)) {
-    const matchKey = Object.keys(EMOTION_ENUM).find((k) => k.toLowerCase() === rawLower)!;
-    finalValue = (EMOTION_ENUM as Record<string, EmotionEnum>)[matchKey];
-  }
-
-  if (!finalValue) {
-    return NextResponse.json(
-      { error: `emotion must be one of: ${Array.from(allowedValues).join(", ")}` },
-      { status: 400 }
-    );
-  }
-
-  const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
   const saved = await prisma.emotionEntry.create({
     data: {
       childId,
-      date: new Date(`${dateStr}T00:00:00.000Z`),
-      emotion: finalValue, // <- typed as EmotionEnum
-      note,
+      date: dateOnly,
+      emotion: toEnum(emotionRaw as EmotionKey), // convert to DB enum
+      note: null,
     },
     select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
   });
 
-  return NextResponse.json(saved, { status: 201 });
+  const dt = new Date(saved.createdAt);
+  const hh = String(dt.getUTCHours()).padStart(2, "0");
+  const mm = String(dt.getUTCMinutes()).padStart(2, "0");
+
+  return NextResponse.json({
+    id: saved.id,
+    date: dt.toISOString().slice(0,10),
+    time: `${hh}:${mm}`,
+    emotion: String(saved.emotion).toLowerCase(),
+    note: saved.note,
+    createdAt: dt.toISOString(),
+  });
 }
