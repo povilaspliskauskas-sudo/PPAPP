@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma, Prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/emotions?childId=1&days=7&from=YYYY-MM-DD
  *  - returns array of entries (newest first) with {id, date, time, emotion, note, createdAt}
  *
  * POST /api/emotions
- *  body: { childId: number, emotion: string, note?: string }
- *  - creates a new entry (append-only) with current timestamp; date is set to YYYY-MM-DD (UTC)
+ *  body: { childId: number, emotion: string (case-insensitive), note?: string }
+ *  - appends a new entry (no toggling), date bucket is YYYY-MM-DD (UTC), createdAt is now
  */
 
 function startOfDay(dateStr?: string) {
@@ -58,8 +59,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const childId = Number(body?.childId);
-  let emotionRaw = String(body?.emotion ?? "");
   const note = body?.note ? String(body.note) : null;
+  let emotionRaw = String(body?.emotion ?? "");
 
   if (!childId || !emotionRaw) {
     return NextResponse.json(
@@ -68,17 +69,22 @@ export async function POST(req: Request) {
     );
   }
 
-  // Normalize to UPPERCASE to match enum style
+  // Normalize to UPPERCASE to match enum identifier casing
   const normalized = emotionRaw.toUpperCase();
 
-  // Prisma exports the enum object under the same name as in schema.
-  // Example: Prisma.emotion_enum = { HAPPY: 'HAPPY', SAD: 'SAD', ... }
-  const EM = Prisma.emotion_enum as Record<string, string>;
-  const allowedValues = new Set(Object.values(EM));
-
-  if (!allowedValues.has(normalized)) {
+  // Prisma enums are available at runtime on Prisma.<EnumName>
+  // Adjust the enum name below if your schema uses a different one than `emotion_enum`
+  const EM = Prisma.emotion_enum as unknown as Record<string, string> | undefined;
+  if (!EM) {
     return NextResponse.json(
-      { error: `emotion must be one of: ${Array.from(allowedValues).join(", ")}` },
+      { error: "Prisma enum `emotion_enum` not found. Check your schema enum name." },
+      { status: 500 }
+    );
+  }
+  const allowed = new Set(Object.values(EM));
+  if (!allowed.has(normalized)) {
+    return NextResponse.json(
+      { error: `emotion must be one of: ${Array.from(allowed).join(", ")}` },
       { status: 400 }
     );
   }
@@ -90,8 +96,7 @@ export async function POST(req: Request) {
     data: {
       childId,
       date: new Date(`${dateStr}T00:00:00.000Z`),
-      // cast to the enum type after validation
-      emotion: normalized as unknown as typeof Prisma.emotion_enum[keyof typeof Prisma.emotion_enum],
+      emotion: normalized as unknown as (typeof Prisma.emotion_enum)[keyof typeof Prisma.emotion_enum],
       note,
     },
     select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
