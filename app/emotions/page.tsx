@@ -3,129 +3,131 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ChildSwitcher, { Child } from "../components/ChildSwitcher";
 
-const EMOJIS = [
-  { key: "happy", icon: "😊", label: "Happy" },
-  { key: "calm", icon: "😌", label: "Calm" },
-  { key: "excited", icon: "🤩", label: "Excited" },
-  { key: "neutral", icon: "😐", label: "Neutral" },
-  { key: "sad", icon: "😢", label: "Sad" },
-  { key: "angry", icon: "😠", label: "Angry" },
-  { key: "tired", icon: "🥱", label: "Tired" },
-] as const;
+type HistoryItem = { id: number; date: string; time: string; emotion: string; createdAt: string; note?: string | null };
 
-type HistoryItem = {
-  id: number;
-  date: string;         // YYYY-MM-DD
-  time: string;         // HH:MM UTC
-  emotion: string;      // enum value
-  note: string | null;  // (always null now, shown for completeness)
-  createdAt: string;
-};
+const EMOJIS = [
+  { key: "happy",   icon: "😊", label: "Happy" },
+  { key: "calm",    icon: "😌", label: "Calm" },
+  { key: "excited", icon: "��", label: "Excited" },
+  { key: "neutral", icon: "😐", label: "Neutral" },
+  { key: "sad",     icon: "😢", label: "Sad" },
+  { key: "angry",   icon: "😠", label: "Angry" },
+  { key: "tired",   icon: "🥱", label: "Tired" },
+] as const;
 
 export default function EmotionsPage() {
   const [child, setChild] = useState<Child | undefined>();
-  const [last, setLast] = useState<string | null>(null);
+  const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
+  const [historyOpen, setHistoryOpen] = useState(false);
 
-  // History state + filters
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  // filters
   const [from, setFrom] = useState<string>(new Date().toISOString().slice(0,10));
-  const [days, setDays] = useState<number>(7);
-  const [emotionFilter, setEmotionFilter] = useState<string>("");
+  const [days, setDays] = useState<number>(30);
+  const [emotionFilter, setEmotionFilter] = useState<string>("all");
 
-  // Fetch children selection happens inside ChildSwitcher; here we just react when child changes
-  useEffect(() => {
-    if (!child?.id) return;
-    fetchHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [lastPressed, setLastPressed] = useState<string | null>(null);
+
+  const selectedChildLabel = useMemo(() => {
+    return child ? `${child.name} (${child.age})` : "Select child";
   }, [child]);
 
-  async function fetchHistory(opts?: { from?: string; days?: number }) {
+  async function sendEmotion(key: string) {
     if (!child?.id) return;
-    const f = opts?.from ?? from;
-    const d = opts?.days ?? days;
-
-    const url = new URL("/api/emotions", window.location.origin);
-    url.searchParams.set("childId", String(child.id));
-    url.searchParams.set("from", f);
-    url.searchParams.set("days", String(d));
-
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    const data = res.ok ? await res.json() : { items: [] };
-    setHistory(Array.isArray(data.items) ? data.items : []);
+    setLastPressed(key);
+    try {
+      await fetch("/api/emotions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ childId: child.id, emotion: key }),
+      });
+      // after saving, refresh history if panel open
+      if (historyOpen) loadHistory();
+    } catch {}
   }
 
-  async function sendEmotion(eKey: string) {
+  async function loadHistory() {
     if (!child?.id) return;
-    const res = await fetch("/api/emotions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        childId: child.id,
-        emotion: eKey,   // no note
-      }),
-    });
-    if (res.ok) {
-      setLast(eKey);
-      // refresh history to show the new entry
-      fetchHistory();
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        childId: String(child.id),
+        from,
+        days: String(days),
+      });
+      const res = await fetch(`/api/emotions?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({ items: [] }));
+      let arr: HistoryItem[] = Array.isArray(data) ? data : (data?.items ?? []);
+      if (emotionFilter !== "all") {
+        arr = arr.filter(r => r.emotion === emotionFilter);
+      }
+      setItems(arr);
+    } finally {
+      setLoading(false);
     }
   }
 
-  // Derived: filtered history (by emotion)
-  const filteredHistory = useMemo(() => {
-    if (!emotionFilter) return history;
-    return history.filter(h => h.emotion === emotionFilter);
-  }, [history, emotionFilter]);
+  // auto-load when opening panel or when child/filters change while open
+  useEffect(() => {
+    if (historyOpen) loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyOpen, child?.id, from, days, emotionFilter]);
 
-  // Group by date for nicer display
+  // group by date
   const grouped = useMemo(() => {
     const map = new Map<string, HistoryItem[]>();
-    for (const item of filteredHistory) {
-      if (!map.has(item.date)) map.set(item.date, []);
-      map.get(item.date)!.push(item);
+    for (const it of items) {
+      if (!map.has(it.date)) map.set(it.date, []);
+      map.get(it.date)!.push(it);
     }
-    // sort dates desc
-    return Array.from(map.entries()).sort((a,b) => (a[0] < b[0] ? 1 : -1));
-  }, [filteredHistory]);
+    return Array.from(map.entries()).sort((a,b) => (a[0] < b[0] ? 1 : -1)); // newest day first
+  }, [items]);
 
   return (
     <main className="min-h-screen grid place-items-center p-6">
       <div className="w-full max-w-[1000px] mx-auto text-center">
-        {/* Top row: Home + date + children */}
-        <div className="flex items-center justify-center gap-6 flex-wrap">
+        <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
             aria-label="Home"
-            className="tap-target inline-flex size-[120px] items-center justify-center rounded-2xl border shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+            className="tap-target inline-flex items-center justify-center rounded-2xl border p-4 shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 w-[120px] h-[120px]"
           >
-            <span aria-hidden="true" className="leading-none text-[80px]">🏠</span>
+            <span aria-hidden="true" className="leading-none text-[64px]">🏠</span>
             <span className="sr-only">Home</span>
           </Link>
 
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-600">Date</label>
+          <div className="flex-1" />
+
+          <div className="inline-flex items-center gap-3">
             <input
               type="date"
-              value={from}
-              onChange={(e) => { setFrom(e.target.value); fetchHistory({ from: e.target.value }); }}
-              className="rounded-xl border px-3 py-2 shadow"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="border rounded-xl px-3 py-2"
+              aria-label="Date"
             />
+            <ChildSwitcher value={child?.id} onChange={setChild} />
           </div>
-
-          <ChildSwitcher
-            onChange={(c) => setChild(c)}
-          />
         </div>
 
-        {/* Big emotion tiles */}
-        <div className="mt-8 grid grid-cols-[repeat(auto-fit,240px)] justify-center gap-[240px]">
-          {EMOJIS.map((e) => (
+        <h1 className="text-2xl font-semibold mb-4">Emotions for {selectedChildLabel}</h1>
+
+        {/* emoji grid */}
+        <div
+          className="grid justify-center"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 240px))",
+            gap: "24px",
+          }}
+        >
+          {EMOJIS.map(e => (
             <button
               key={e.key}
               type="button"
-              aria-pressed={last === e.key}
               onClick={() => sendEmotion(e.key)}
-              className="tap-target inline-flex size-[240px] flex-col items-center justify-center rounded-2xl border bg-white shadow active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+              aria-label={e.label}
+              className="tap-target rounded-2xl border shadow active:scale-95 w-[240px] h-[240px] inline-flex flex-col items-center justify-center"
             >
               <span className="text-[96px]" aria-hidden="true">{e.icon}</span>
               <span className="mt-2 text-base font-medium">{e.label}</span>
@@ -133,91 +135,77 @@ export default function EmotionsPage() {
           ))}
         </div>
 
-        {/* Expandable history panel */}
-        <details className="mt-10 text-left">
-          <summary className="cursor-pointer select-none rounded-2xl border px-4 py-3 shadow">
-            <span className="font-semibold">History (last {days} days)</span>
-            {last && <span className="ml-3 text-sm text-gray-500">Last recorded: {last}</span>}
-          </summary>
+        {lastPressed && (
+          <div className="mt-3 text-sm text-gray-600">Last pressed: {lastPressed}</div>
+        )}
 
-          <div className="mt-4 rounded-2xl border p-4">
-            {/* Filters */}
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">From</label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="rounded-xl border px-3 py-2 shadow"
-                />
-              </div>
+        {/* History panel */}
+        <div className="mt-10 text-left">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(v => !v)}
+            className="rounded-xl border px-4 py-2 shadow active:scale-95"
+            aria-expanded={historyOpen}
+            aria-controls="history-panel"
+          >
+            {historyOpen ? "Hide" : "Show"} History (last {days} days)
+          </button>
 
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Days</label>
-                <select
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
-                  className="rounded-xl border px-3 py-2 shadow"
-                >
-                  <option value={7}>7</option>
-                  <option value={14}>14</option>
-                  <option value={30}>30</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Emotion</label>
-                <select
-                  value={emotionFilter}
-                  onChange={(e) => setEmotionFilter(e.target.value)}
-                  className="rounded-xl border px-3 py-2 shadow"
-                >
-                  <option value="">All</option>
-                  {EMOJIS.map(e => (
-                    <option key={e.key} value={e.key}>{e.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => fetchHistory({ from, days })}
-                className="rounded-2xl border px-4 py-2 shadow active:scale-95"
+          {historyOpen && (
+            <div id="history-panel" className="mt-4 rounded-2xl border p-4">
+              <form
+                className="flex flex-wrap items-end gap-3 mb-4"
+                onSubmit={(e) => { e.preventDefault(); loadHistory(); }}
               >
-                Apply
-              </button>
-            </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-600">From</label>
+                  <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="border rounded-xl px-3 py-2" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-600">Days</label>
+                  <input type="number" min={1} max={365} value={days} onChange={e=>setDays(Number(e.target.value || 1))} className="border rounded-xl px-3 py-2 w-[110px]" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-600">Emotion</label>
+                  <select value={emotionFilter} onChange={e=>setEmotionFilter(e.target.value)} className="border rounded-xl px-3 py-2">
+                    <option value="all">All</option>
+                    {EMOJIS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+                  </select>
+                </div>
+                <button type="submit" className="rounded-xl border px-4 py-2 shadow active:scale-95">Apply</button>
+              </form>
 
-            {/* Results */}
-            <div className="mt-6">
-              {grouped.length === 0 && (
-                <div className="text-sm text-gray-500">No entries for selected range/filters.</div>
+              {loading ? (
+                <div className="text-sm text-gray-600">Loading…</div>
+              ) : grouped.length === 0 ? (
+                <div className="text-sm text-gray-600">No entries for selected range/filters.</div>
+              ) : (
+                <div className="space-y-4">
+                  {grouped.map(([d, rows]) => (
+                    <div key={d} className="rounded-xl border p-3">
+                      <div className="font-medium mb-2">{d}</div>
+                      <ul className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                        {rows.map(r => {
+                          const emoji = EMOJIS.find(x => x.key === r.emotion)?.icon ?? "📝";
+                          const label = EMOJIS.find(x => x.key === r.emotion)?.label ?? r.emotion;
+                          return (
+                            <li key={r.id} className="rounded-lg border px-3 py-2 flex items-center gap-3">
+                              <span className="text-2xl" aria-hidden="true">{emoji}</span>
+                              <div className="text-sm">
+                                <div className="font-medium">{label}</div>
+                                <div className="text-gray-600">{r.time}</div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               )}
-
-              <div className="grid gap-4">
-                {grouped.map(([date, items]) => (
-                  <div key={date} className="rounded-xl border p-3">
-                    <div className="font-semibold">{date}</div>
-                    <ul className="mt-2 grid gap-2">
-                      {items.map((it) => {
-                        const emoji = EMOJIS.find(e => e.key === it.emotion)?.icon ?? "•";
-                        const label = EMOJIS.find(e => e.key === it.emotion)?.label ?? it.emotion;
-                        return (
-                          <li key={it.id} className="flex items-center gap-3">
-                            <span className="text-xl" aria-hidden="true">{emoji}</span>
-                            <span className="text-sm">{label}</span>
-                            <span className="ml-auto text-xs text-gray-500">{it.time}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
             </div>
-          </div>
-        </details>
+          )}
+        </div>
       </div>
     </main>
   );
