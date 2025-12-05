@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { emotion_enum as EMOTION_ENUM } from "@prisma/client";
+import type { emotion_enum as EmotionEnum } from "@prisma/client";
 
 /**
  * GET /api/emotions?childId=1&days=7&from=YYYY-MM-DD
- *  - returns array of entries (newest first) with {id, date, time, emotion, note, createdAt}
+ *  - returns entries (newest first) with {id, date, time, emotion, note, createdAt}
  *
  * POST /api/emotions
- *  body: { childId: number, emotion: string (case-insensitive), note?: string }
- *  - appends a new entry (no toggling), date bucket is YYYY-MM-DD (UTC), createdAt is now
+ *  body: { childId: number, emotion: string, note?: string }
+ *  - appends a new entry (no toggle). Date bucket = UTC YYYY-MM-DD; createdAt = now
  */
 
 function startOfDay(dateStr?: string) {
@@ -60,43 +61,35 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const childId = Number(body?.childId);
   const note = body?.note ? String(body.note) : null;
-  let emotionRaw = String(body?.emotion ?? "");
+  const raw = String(body?.emotion ?? "").trim();
+  if (!childId || !raw) {
+    return NextResponse.json({ error: "childId and emotion are required" }, { status: 400 });
+  }
 
-  if (!childId || !emotionRaw) {
+  // Normalize to enum values (UPPERCASE). Accept either key or value casing.
+  const normalized = raw.toUpperCase();
+
+  // EMOTION_ENUM is a value object like: { HAPPY: 'HAPPY', CALM: 'CALM', ... }
+  const allowedValues = new Set(Object.values(EMOTION_ENUM)); // string[]
+  const allowedKeys = new Set(Object.keys(EMOTION_ENUM));     // 'HAPPY', 'CALM', ...
+  const finalValue =
+    allowedValues.has(normalized) ? normalized :
+    allowedKeys.has(normalized) ? (EMOTION_ENUM as Record<string, string>)[normalized] :
+    null;
+
+  if (!finalValue) {
     return NextResponse.json(
-      { error: "childId and emotion are required" },
+      { error: `emotion must be one of: ${Object.values(EMOTION_ENUM).join(", ")}` },
       { status: 400 }
     );
   }
 
-  // Normalize to UPPERCASE to match enum identifier casing
-  const normalized = emotionRaw.toUpperCase();
-
-  // Prisma enums are available at runtime on Prisma.<EnumName>
-  // Adjust the enum name below if your schema uses a different one than `emotion_enum`
-  const EM = Prisma.emotion_enum as unknown as Record<string, string> | undefined;
-  if (!EM) {
-    return NextResponse.json(
-      { error: "Prisma enum `emotion_enum` not found. Check your schema enum name." },
-      { status: 500 }
-    );
-  }
-  const allowed = new Set(Object.values(EM));
-  if (!allowed.has(normalized)) {
-    return NextResponse.json(
-      { error: `emotion must be one of: ${Array.from(allowed).join(", ")}` },
-      { status: 400 }
-    );
-  }
-
-  // date bucket (YYYY-MM-DDT00:00:00.000Z)
-  const dateStr = new Date().toISOString().slice(0, 10);
-
+  const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
   const saved = await prisma.emotionEntry.create({
     data: {
       childId,
       date: new Date(`${dateStr}T00:00:00.000Z`),
-      emotion: normalized as unknown as (typeof Prisma.emotion_enum)[keyof typeof Prisma.emotion_enum],
+      emotion: finalValue as EmotionEnum,
       note,
     },
     select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
