@@ -51,37 +51,3 @@ html, body {
   outline-offset: 2px;
   border-radius: 16px;
 }
-
-/* === Safe global centering (no TSX changes) ===
-   - Centers the entire app vertically + horizontally
-   - Keeps content readable within a max width
-   - Does NOT touch API routes (CSS only affects pages) */
-
-@layer base {
-  html, body, :root { height: 100%; }
-  body {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;     /* vertical */
-    justify-content: center; /* horizontal */
-  }
-  /* Constrain main content so it's centered in a readable column */
-  body > * {
-    width: 100%;
-    max-width: 1000px; /* tweak if you want wider/narrower */
-    margin-left: auto;
-    margin-right: auto;
-  }
-  /* Make typical page blocks center aligned without touching components */
-  main, section {
-    text-align: center;
-  }
-}
-
-/* Keep your large touch target styles */
-.tap-target { min-height: 72px; min-width: 72px; }
-.tap-target:focus-visible {
-  outline: 3px solid #10b981; /* emerald-500 */
-  outline-offset: 2px;
-  border-radius: 16px;
-}
