@@ -5,13 +5,13 @@ import ChildSwitcher, { Child } from "../components/ChildSwitcher";
 import HistoryEmotions from "../components/HistoryEmotions";
 
 const EMOJIS = [
-  { key: "happy", icon: "😊" },
-  { key: "calm", icon: "😌" },
-  { key: "excited", icon: "🤩" },
-  { key: "neutral", icon: "😐" },
-  { key: "sad", icon: "😢" },
-  { key: "angry", icon: "😠" },
-  { key: "tired", icon: "🥱" },
+  { value: "HAPPY",   label: "happy",   icon: "😊" },
+  { value: "CALM",    label: "calm",    icon: "😌" },
+  { value: "EXCITED", label: "excited", icon: "🤩" },
+  { value: "NEUTRAL", label: "neutral", icon: "😐" },
+  { value: "SAD",     label: "sad",     icon: "😢" },
+  { value: "ANGRY",   label: "angry",   icon: "😠" },
+  { value: "TIRED",   label: "tired",   icon: "🥱" },
 ];
 
 export default function EmotionsPage() {
@@ -21,7 +21,7 @@ export default function EmotionsPage() {
   const [last, setLast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function pressEmotion(key: string) {
+  async function pressEmotion(value: string) {
     if (!child?.id) return;
     setSaving(true);
     try {
@@ -30,13 +30,12 @@ export default function EmotionsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           childId: child.id,
-          emotion: key,
+          emotion: value, // already UPPERCASE to match enum
           note: note || null,
         }),
       });
-      setLast(key);
+      setLast(value);
       setNote("");
-      // HistoryEmotions refetches automatically because it depends on child; to force, we could add a key.
     } finally {
       setSaving(false);
     }
@@ -71,17 +70,17 @@ export default function EmotionsPage() {
         >
           {EMOJIS.map((e) => (
             <button
-              key={e.key}
+              key={e.value}
               type="button"
-              aria-pressed={last === e.key}
-              onClick={() => pressEmotion(e.key)}
+              aria-pressed={last === e.value}
+              onClick={() => pressEmotion(e.value)}
               disabled={!child?.id || saving}
               className={`tap-target text-left inline-flex flex-col items-center justify-center rounded-2xl border p-4 shadow active:scale-95 ${
-                last === e.key ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
+                last === e.value ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-gray-50"
               }`}
             >
               <div className="text-[96px]" aria-hidden="true">{e.icon}</div>
-              <div className="font-medium mt-2">{e.key}</div>
+              <div className="font-medium mt-2">{e.label}</div>
             </button>
           ))}
         </div>

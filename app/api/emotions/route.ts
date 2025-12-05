@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, Prisma } from "@/lib/prisma";
 
 /**
  * GET /api/emotions?childId=1&days=7&from=YYYY-MM-DD
@@ -11,7 +11,6 @@ import { prisma } from "@/lib/prisma";
  */
 
 function startOfDay(dateStr?: string) {
-  // dateStr in YYYY-MM-DD; if missing, use today UTC
   const iso = (dateStr ?? new Date().toISOString().slice(0, 10)) + "T00:00:00.000Z";
   return new Date(iso);
 }
@@ -26,10 +25,8 @@ export async function GET(req: Request) {
   const days = Math.max(1, Math.min(31, Number(searchParams.get("days") ?? 7)));
   const fromParam = searchParams.get("from") ?? undefined;
 
-  // Compute window by createdAt (more precise than date)
   const end = new Date(); // now
   const start = startOfDay(fromParam);
-  // If days provided, shift start back (cover N days)
   start.setUTCDate(start.getUTCDate() - (days - 1));
 
   const rows = await prisma.emotionEntry.findMany({
@@ -41,14 +38,13 @@ export async function GET(req: Request) {
     select: { id: true, createdAt: true, emotion: true, note: true, date: true },
   });
 
-  // decorate with time HH:MM from createdAt
   const items = rows.map((r) => {
-    const d = new Date(r.createdAt);
-    const hh = String(d.getUTCHours()).padStart(2, "0");
-    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    const created = new Date(r.createdAt);
+    const hh = String(created.getUTCHours()).padStart(2, "0");
+    const mm = String(created.getUTCMinutes()).padStart(2, "0");
     return {
       id: r.id,
-      date: (r.date ?? d).toISOString().slice(0, 10),
+      date: (r.date ?? created).toISOString().slice(0, 10),
       time: `${hh}:${mm} UTC`,
       emotion: r.emotion,
       note: r.note ?? null,
@@ -62,23 +58,40 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const childId = Number(body?.childId);
-  const emotion = String(body?.emotion ?? "");
+  let emotionRaw = String(body?.emotion ?? "");
   const note = body?.note ? String(body.note) : null;
 
-  if (!childId || !emotion) {
+  if (!childId || !emotionRaw) {
     return NextResponse.json(
       { error: "childId and emotion are required" },
       { status: 400 }
     );
   }
 
-  // date (day bucket) is stored as YYYY-MM-DDT00:00:00.000Z
+  // Normalize to UPPERCASE to match enum style
+  const normalized = emotionRaw.toUpperCase();
+
+  // Prisma exports the enum object under the same name as in schema.
+  // Example: Prisma.emotion_enum = { HAPPY: 'HAPPY', SAD: 'SAD', ... }
+  const EM = Prisma.emotion_enum as Record<string, string>;
+  const allowedValues = new Set(Object.values(EM));
+
+  if (!allowedValues.has(normalized)) {
+    return NextResponse.json(
+      { error: `emotion must be one of: ${Array.from(allowedValues).join(", ")}` },
+      { status: 400 }
+    );
+  }
+
+  // date bucket (YYYY-MM-DDT00:00:00.000Z)
   const dateStr = new Date().toISOString().slice(0, 10);
+
   const saved = await prisma.emotionEntry.create({
     data: {
       childId,
       date: new Date(`${dateStr}T00:00:00.000Z`),
-      emotion,
+      // cast to the enum type after validation
+      emotion: normalized as unknown as typeof Prisma.emotion_enum[keyof typeof Prisma.emotion_enum],
       note,
     },
     select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
