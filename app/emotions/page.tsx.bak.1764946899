@@ -29,14 +29,6 @@ export default function EmotionsPage() {
   const [lastPressed, setLastPressed] = useState<string | null>(null);
 
   // History UI state
-  // Fetch whenever child changes (if panel open we still refresh)
-  useEffect(() => {
-    if (child?.id) {
-      fetchHistory();
-    } else {
-      setItems([]);
-    }
-  }, [child?.id]);
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [from, setFrom] = useState<string>(new Date().toISOString().slice(0, 10));
   const [days, setDays] = useState<number>(30);
