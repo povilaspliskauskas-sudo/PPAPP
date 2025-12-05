@@ -1,100 +1,117 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Allowed UI emotion keys (lowercase)
-const ALLOWED = ["happy","calm","excited","neutral","sad","angry","tired"] as const;
-type EmotionKey = typeof ALLOWED[number];
-
-// Map UI key -> DB enum value (uppercase names in your prisma enum `emotion_enum`)
-const toEnum = (k: EmotionKey) => k.toUpperCase() as unknown as any;
-
 /**
- * GET /api/emotions?childId=1&from=YYYY-MM-DD&days=7
- * Returns presses in the window [start..end], where:
- *   end   = end of "from" day (23:59:59.999Z)
- *   start = (days-1) days before "from" at 00:00:00.000Z
+ * We accept these emotion keys from the UI and store them verbatim.
+ * This avoids importing Prisma's enum types and keeps TS happy during build.
  */
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const childId = Number(searchParams.get("childId"));
-  const fromStr = searchParams.get("from") ?? new Date().toISOString().slice(0,10);
-  const days    = Number(searchParams.get("days") ?? "7");
+const EMOTIONS = ["happy","calm","excited","neutral","sad","angry","tired"] as const;
+type Emotion = typeof EMOTIONS[number];
 
-  if (!childId || !Number.isFinite(childId) || !Number.isFinite(days) || days < 1) {
-    return NextResponse.json({ items: [] }, { status: 200 });
+function isEmotion(v: unknown): v is Emotion {
+  return typeof v === "string" && EMOTIONS.includes(v as Emotion);
+}
+
+// Helpers
+function toStartOfUTCDate(d: Date) {
+  const copy = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  return copy;
+}
+function ymd(date: Date) {
+  return date.toISOString().slice(0,10); // YYYY-MM-DD (UTC)
+}
+function hm(date: Date) {
+  return date.toISOString().slice(11,16); // HH:MM (UTC)
+}
+
+/** POST /api/emotions  Body: { childId:number, emotion:Emotion, date?:YYYY-MM-DD } */
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const childId = Number(body?.childId);
+    const emotionRaw = body?.emotion;
+
+    if (!childId || !isEmotion(emotionRaw)) {
+      return NextResponse.json(
+        { error: "Invalid body. Expect { childId:number, emotion: one of "+EMOTIONS.join(", ")+" }" },
+        { status: 400 }
+      );
+    }
+
+    // If client passes a date, use it (UTC start-of-day); else use now's day.
+    const dateStr: string | undefined = typeof body?.date === "string" ? body.date : undefined;
+    const date = dateStr ? toStartOfUTCDate(new Date(dateStr+"T00:00:00.000Z")) : toStartOfUTCDate(new Date());
+
+    // Create a NEW entry for every press (no toggling!)
+    const saved = await prisma.emotionEntry.create({
+      data: {
+        childId,
+        date,          // day bucket
+        emotion: emotionRaw, // store as string; Prisma will validate against DB enum
+        // note?: optional — we omit for now per your request
+      },
+      select: { id:true, childId:true, date:true, emotion:true, createdAt:true, note:true }
+    });
+
+    return NextResponse.json({
+      id: saved.id,
+      childId: saved.childId,
+      date: ymd(saved.date),          // YYYY-MM-DD
+      time: hm(saved.createdAt),      // HH:MM
+      emotion: saved.emotion,
+      createdAt: saved.createdAt,
+      note: saved.note ?? null
+    });
+  } catch (e) {
+    return NextResponse.json({ error: "Server error", detail: String(e) }, { status: 500 });
   }
-
-  // Window: start..end (UTC)
-  const fromDate = new Date(`${fromStr}T00:00:00.000Z`);
-  const start = new Date(fromDate);
-  start.setUTCDate(start.getUTCDate() - (days - 1)); // include previous days
-  const end = new Date(fromDate);
-  end.setUTCHours(23, 59, 59, 999);
-
-  const rows = await prisma.emotionEntry.findMany({
-    where: {
-      childId,
-      createdAt: { gte: start, lte: end },
-    },
-    select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const items = rows.map(r => {
-    const dt = new Date(r.createdAt);
-    const hh = String(dt.getUTCHours()).padStart(2, "0");
-    const mm = String(dt.getUTCMinutes()).padStart(2, "0");
-    return {
-      id: r.id,
-      date: dt.toISOString().slice(0,10),      // YYYY-MM-DD
-      time: `${hh}:${mm}`,                      // HH:MM (UTC)
-      emotion: String(r.emotion).toLowerCase(), // back to lowercase for UI
-      note: r.note,
-      createdAt: dt.toISOString(),
-    };
-  });
-
-  return NextResponse.json({ items });
 }
 
 /**
- * POST /api/emotions
- * body: { childId: number, emotion: "happy" | ... }
- * Saves a new press (does NOT toggle).
+ * GET /api/emotions?childId=1&from=YYYY-MM-DD&days=30&emotion=happy|calm|...|all
+ * Returns chronological entries with date + time strings.
  */
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => null) as { childId?: number; emotion?: string } | null;
-  const childId = Number(body?.childId ?? 0);
-  const emotionRaw = String(body?.emotion ?? "").toLowerCase();
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const childId = Number(searchParams.get("childId"));
+    const fromStr = searchParams.get("from") ?? new Date().toISOString().slice(0,10);
+    const days = Number(searchParams.get("days") ?? 30);
+    const emotionFilter = searchParams.get("emotion") ?? "all";
 
-  if (!childId || !ALLOWED.includes(emotionRaw as EmotionKey)) {
-    return NextResponse.json({ error: "Invalid childId or emotion" }, { status: 400 });
-  }
+    if (!childId) {
+      return NextResponse.json({ items: [] }); // nothing to do
+    }
 
-  // date-only column (midnight UTC) + createdAt is automatic now()
-  const today = new Date();
-  const dateOnly = new Date(`${today.toISOString().slice(0,10)}T00:00:00.000Z`);
+    const from = toStartOfUTCDate(new Date(fromStr+"T00:00:00.000Z"));
+    const until = new Date(from); // from + (days - 1)
+    until.setUTCDate(until.getUTCDate() + Math.max(1, days));
 
-  const saved = await prisma.emotionEntry.create({
-    data: {
+    const where: any = {
       childId,
-      date: dateOnly,
-      emotion: toEnum(emotionRaw as EmotionKey), // convert to DB enum
-      note: null,
-    },
-    select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
-  });
+      createdAt: { gte: from, lt: until },
+    };
+    if (emotionFilter !== "all" && isEmotion(emotionFilter)) {
+      where.emotion = emotionFilter;
+    }
 
-  const dt = new Date(saved.createdAt);
-  const hh = String(dt.getUTCHours()).padStart(2, "0");
-  const mm = String(dt.getUTCMinutes()).padStart(2, "0");
+    const rows = await prisma.emotionEntry.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }],
+      select: { id:true, date:true, emotion:true, createdAt:true, note:true },
+    });
 
-  return NextResponse.json({
-    id: saved.id,
-    date: dt.toISOString().slice(0,10),
-    time: `${hh}:${mm}`,
-    emotion: String(saved.emotion).toLowerCase(),
-    note: saved.note,
-    createdAt: dt.toISOString(),
-  });
+    const items = rows.map(r => ({
+      id: r.id,
+      date: ymd(r.date),
+      time: hm(r.createdAt),
+      emotion: r.emotion,
+      createdAt: r.createdAt,
+      note: r.note ?? null,
+    }));
+
+    return NextResponse.json({ items });
+  } catch (e) {
+    return NextResponse.json({ error: "Server error", detail: String(e) }, { status: 500 });
+  }
 }
