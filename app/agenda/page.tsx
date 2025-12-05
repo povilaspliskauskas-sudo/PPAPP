@@ -104,9 +104,9 @@ export default function AgendaPage() {
           <Link
             href="/"
             aria-label="Home"
-            className="tap-target inline-flex items-center justify-center rounded-2xl border p-3 shadow active:scale-95"
+            className="tap-target inline-flex items-center justify-center rounded-2xl border p-3 shadow w-[240px] h-[240px] active:scale-95"
           >
-            <span aria-hidden="true" className="leading-none text-[96px]">🏠</span>
+            <span aria-hidden="true" className="leading-none text-[200px]">🏠</span>
             <span className="sr-only">Home</span>
           </Link>
 
@@ -115,7 +115,7 @@ export default function AgendaPage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="rounded-xl border px-3 py-2 shadow"
+              className="rounded-xl border px-3 py-2 shadow w-[240px] h-[240px]"
             />
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function AgendaPage() {
                 aria-pressed={isOn}
                 onClick={() => toggleTask(task)}
                 className={`tap-target w-full max-w-[320px] text-left inline-flex flex-col items-center
-                            rounded-2xl border px-6 py-5 shadow active:scale-95
+                            rounded-2xl border px-6 py-5 shadow w-[240px] h-[240px] active:scale-95
                             ${isOn ? "outline outline-2 outline-emerald-400 bg-emerald-50" : "bg-white"}`}
               >
                 <div className="text-[56px]" aria-hidden="true">{task.icon}</div>

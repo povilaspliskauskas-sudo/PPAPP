@@ -96,7 +96,7 @@ export default function EmotionsPage() {
 
         <div
           className="grid justify-items-center"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "24px" }}
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px" }}
         >
           {EMOJIS.map((e) => (
             <button
@@ -104,10 +104,10 @@ export default function EmotionsPage() {
               type="button"
               onClick={() => setEmotion(e.key)}
               aria-pressed={last === e.key}
-              className={`tap-target rounded-2xl border shadow px-6 py-4 min-w-[160px] h-[160px] bg-white inline-flex flex-col items-center justify-center transition
+              className={`tap-target rounded-2xl border shadow px-6 py-4 w-[240px] h-[240px] bg-white inline-flex flex-col items-center justify-center transition
                 ${last === e.key ? "outline outline-2 outline-emerald-400 bg-emerald-50" : ""}`}
             >
-              <span aria-hidden className="text-[120px] leading-none">{e.icon}</span>
+              <span aria-hidden className="text-[200px] leading-none">{e.icon}</span>
               <span className="mt-2 font-medium">{e.key}</span>
             </button>
           ))}

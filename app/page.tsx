@@ -25,7 +25,7 @@ const lastNDates = (n: number) => {
 };
 
 type AgendaRow = { date: string; done: number };
-type EmotionRow = { date: string; emotion: string | null; note: string | null };
+type EmotionRow = { date: string | null; emotion: string | null; note: string | null };
 
 // Get static tasks count by age (same presets as Agenda)
 type Task = { key: string; label: string; icon: string; slot?: string };
@@ -108,7 +108,7 @@ export default function Home() {
       <div className="w-full max-w-[1200px] mx-auto px-4 text-center">
         <h1 className="sr-only">PPAPP</h1>
 
-        {/* 240px icon squares with 240px gaps */}
+        {/* 240px icon squares with 240px gaps; label INSIDE the square */}
         <div
           className="grid justify-items-center mb-12"
           style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "240px" }}
@@ -121,9 +121,11 @@ export default function Home() {
               aria-label={c.label}
             >
               <div className="rounded-2xl border shadow bg-white flex items-center justify-center w-[240px] h-[240px] mx-auto">
-                <span aria-hidden className="text-[240px] leading-none">{c.icon}</span>
+                <div className="flex flex-col items-center justify-center">
+                  <span aria-hidden className="text-[200px] leading-none">{c.icon}</span>
+                  <span className="mt-1 text-lg font-semibold">{c.label}</span>
+                </div>
               </div>
-              <div className="mt-3 text-center font-semibold text-xl">{c.label}</div>
             </Link>
           ))}
         </div>
@@ -171,7 +173,7 @@ export default function Home() {
                     </thead>
                     <tbody>
                       {emotionHistory.map((r) => (
-                        <tr key={r.date} className="border-b last:border-0">
+                        <tr key={r.date ?? ""} className="border-b last:border-0">
                           <td className="py-2 pr-4">{r.date}</td>
                           <td className="py-2 pr-4">{r.emotion ?? "—"}</td>
                           <td className="py-2">{r.note ?? "—"}</td>
