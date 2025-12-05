@@ -61,25 +61,30 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const childId = Number(body?.childId);
   const note = body?.note ? String(body.note) : null;
-  const raw = String(body?.emotion ?? "").trim();
-  if (!childId || !raw) {
+
+  // Normalize input to lowercase to match enum values
+  const rawLower = String(body?.emotion ?? "").trim().toLowerCase();
+  if (!childId || !rawLower) {
     return NextResponse.json({ error: "childId and emotion are required" }, { status: 400 });
   }
 
-  // Normalize to enum values (UPPERCASE). Accept either key or value casing.
-  const normalized = raw.toUpperCase();
+  // Allowed enum values (typed)
+  const allowedValues = new Set(Object.values(EMOTION_ENUM) as EmotionEnum[]); // e.g., 'happy' | 'calm' ...
+  // Allowed enum keys (UPPERCASE), compare case-insensitively
+  const allowedKeysLower = new Set(Object.keys(EMOTION_ENUM).map((k) => k.toLowerCase()));
 
-  // EMOTION_ENUM is a value object like: { HAPPY: 'HAPPY', CALM: 'CALM', ... }
-  const allowedValues = new Set(Object.values(EMOTION_ENUM)); // string[]
-  const allowedKeys = new Set(Object.keys(EMOTION_ENUM));     // 'HAPPY', 'CALM', ...
-  const finalValue =
-    allowedValues.has(normalized) ? normalized :
-    allowedKeys.has(normalized) ? (EMOTION_ENUM as Record<string, string>)[normalized] :
-    null;
+  let finalValue: EmotionEnum | null = null;
+
+  if (allowedValues.has(rawLower as EmotionEnum)) {
+    finalValue = rawLower as EmotionEnum;
+  } else if (allowedKeysLower.has(rawLower)) {
+    const matchKey = Object.keys(EMOTION_ENUM).find((k) => k.toLowerCase() === rawLower)!;
+    finalValue = (EMOTION_ENUM as Record<string, EmotionEnum>)[matchKey];
+  }
 
   if (!finalValue) {
     return NextResponse.json(
-      { error: `emotion must be one of: ${Object.values(EMOTION_ENUM).join(", ")}` },
+      { error: `emotion must be one of: ${Array.from(allowedValues).join(", ")}` },
       { status: 400 }
     );
   }
@@ -89,7 +94,7 @@ export async function POST(req: Request) {
     data: {
       childId,
       date: new Date(`${dateStr}T00:00:00.000Z`),
-      emotion: finalValue as EmotionEnum,
+      emotion: finalValue, // <- typed as EmotionEnum
       note,
     },
     select: { id: true, childId: true, date: true, emotion: true, note: true, createdAt: true },
