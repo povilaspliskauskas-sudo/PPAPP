@@ -5,8 +5,8 @@ button { cursor: pointer; }
 
 /* --- A11y: large tap target + visible focus --- */
 .tap-target {
-  min-height: 72px;
-  min-width: 72px;
+  min-height: 96px;
+  min-width: 96px;
 }
 
 /* show a clear focus ring when keyboard users tab */
@@ -18,8 +18,8 @@ button { cursor: pointer; }
 
 /* --- A11y: large tap target + visible focus --- */
 .tap-target {
-  min-height: 72px;
-  min-width: 72px;
+  min-height: 96px;
+  min-width: 96px;
 }
 
 /* show a clear focus ring when keyboard users tab */
@@ -30,8 +30,8 @@ button { cursor: pointer; }
 }
 /* Accessibility: minimum hit area + visible focus */
 .tap-target {
-  min-height: 72px;
-  min-width: 72px;
+  min-height: 96px;
+  min-width: 96px;
 }
 .tap-target:focus-visible {
   outline: 3px solid #10b981; /* emerald-500 */
@@ -45,11 +45,9 @@ html, body {
 }
 
 /* Larger universal touch target */
-.tap-target { min-height: 72px; min-width: 72px; }
-.tap-target:focus-visible {
-  outline: 3px solid #10b981;
-  outline-offset: 2px;
-  border-radius: 16px;
+.tap-target {
+  min-height: 96px;
+  min-width: 96px;
 }
 
 /* === Safe global centering (no TSX changes) ===
@@ -79,9 +77,7 @@ html, body {
 }
 
 /* Keep your large touch target styles */
-.tap-target { min-height: 72px; min-width: 72px; }
-.tap-target:focus-visible {
-  outline: 3px solid #10b981; /* emerald-500 */
-  outline-offset: 2px;
-  border-radius: 16px;
+.tap-target {
+  min-height: 96px;
+  min-width: 96px;
 }
